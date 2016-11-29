@@ -1,7 +1,7 @@
 ﻿
 #include <ncurses.h>    // Interfaz TUI para consola
 #include <stdio.h>      // Metodos basicos de I/O
-#include <unistd.h>     // Entorno UNIX
+#include <unistd.h>     // Entorno UNjugadores
 #include <time.h>       // Metodos de tiempo
 #include <stdlib.h>     // Metodos estandares
 #include <wchar.h>      // Uso de caracteres UNICODE UTF-8
@@ -25,15 +25,22 @@
 #define SCORE_SIZE 4
 #define CLOCKS_PER_SEC 1000000
 
+#define PAC_LAG   75000
+#define GHO_LAG_1 PAC_LAG * 1.2
+#define GHO_LAG_2 PAC_LAG * 1.3
+#define GHO_LAG_3 PAC_LAG * 1.5
+#define GHO_LAG_4 PAC_LAG * 1.7
 
 // Sendables things here
 
 typedef struct{
-   char name;
-   char keyst;
+   signed char name;
+   signed char keyst;
    signed char x,y,ax,ay,death;
    unsigned char lives;
 } player;
+
+player jugadores[5];
 
 
 
@@ -52,16 +59,18 @@ signed char cur_maze[LABY_HEIGHT][LABY_WIDTH];
 unsigned char game_st = 1,pp = 0, pu = 0;
 unsigned short pills = 0;
 unsigned long uno, msec;
-int xo,xi,yo,yi;
+signed int xo,xi,yo,yi;
 
 
 // Sendable things end
 
 void *myTime(void *);
-pthread_t thread, thread_id;
+
+void *movimiento(void *y);
+pthread_t mov0, mov1, mov2, mov3, mov4, movid0, movid1, movid2, movid3, movid4;
 pthread_mutex_t mx = PTHREAD_MUTEX_INITIALIZER;
 
-const // Laberinto, Espacios representan caminos, caracteres especiales representan paredes, f's es la casa intermedia
+const signed // Laberinto, Espacios representan caminos, caracteres especiales representan paredes, f's es la casa intermedia
 char maze[LABY_HEIGHT][LABY_WIDTH] = {                                                                                 //x
 	{'.','-','-','-','-','-','-','-','-','-','-','-','-','`','.','-','-','-','-','-','-','-','-','-','-','-','-','`'}, //1
 	{'|',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ','|','|',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ','|'}, //2
@@ -100,7 +109,7 @@ char maze[LABY_HEIGHT][LABY_WIDTH] = {                                          
 
   signed short parent_x, parent_y;
   clock_t diff;
-  char key;
+  signed char key;
   
   
   
@@ -201,94 +210,125 @@ signed char draw_laby(WINDOW *screen){
 
 
 
-signed char pla_dir(player ix[5], char i){
+signed char pla_dir(char i){
 	
 	static int last[5];
 	
-    if     ( ix[i].ax == 0  && ix[i].ay == 1 ) {last[i] = 1; return 1;} 
-    else if( ix[i].ax == 0  && ix[i].ay == -1) {last[i] = 2; return 2;}
-    else if( ix[i].ax == 1  && ix[i].ay == 0 ) {last[i] = 3; return 3;}
-    else if( ix[i].ax == -1 && ix[i].ay == 0 ) {last[i] = 4; return 4;}
+    if     ( jugadores[i].ax == 0  && jugadores[i].ay == 1 ) {last[i] = 1; return 1;} 
+    else if( jugadores[i].ax == 0  && jugadores[i].ay == -1) {last[i] = 2; return 2;}
+    else if( jugadores[i].ax == 1  && jugadores[i].ay == 0 ) {last[i] = 3; return 3;}
+    else if( jugadores[i].ax == -1 && jugadores[i].ay == 0 ) {last[i] = 4; return 4;}
 	else return last[i];
 	
 return 0;
 }
 
-signed char collition (player ix[5], char i, char f) {
+signed char collition (char i, char f) {
 
 int dir;
-if (f>0) {dir = f;} else {dir = pla_dir(ix,i);}; 
+if (f>0) {dir = f;} else {dir = pla_dir(i);}; 
 
 switch (dir){
-		case 1: if (col_maze[ix[i].y+1][ix[i].x] == 0) {return 0;} else if (col_maze[ix[i].y+1][ix[i].x] == 1 && i != 0) {return 0;} else return 1; break;
-		case 2: if (col_maze[ix[i].y-1][ix[i].x] == 0) {return 0;} else if (col_maze[ix[i].y-1][ix[i].x] == 1 && i != 0) {return 0;} else return 1; break;
-		case 3: if (col_maze[ix[i].y][ix[i].x+1] == 0) {return 0;} else if (col_maze[ix[i].y][ix[i].x+1] == 1 && i != 0) {return 0;} else return 1; break;
-		case 4: if (col_maze[ix[i].y][ix[i].x-1] == 0) {return 0;} else if (col_maze[ix[i].y][ix[i].x-1] == 1 && i != 0) {return 0;} else return 1; break;
+		case 1: if (col_maze[jugadores[i].y+1][jugadores[i].x] == 0) {return 0;} else if (col_maze[jugadores[i].y+1][jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
+		case 2: if (col_maze[jugadores[i].y-1][jugadores[i].x] == 0) {return 0;} else if (col_maze[jugadores[i].y-1][jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
+		case 3: if (col_maze[jugadores[i].y][jugadores[i].x+1] == 0) {return 0;} else if (col_maze[jugadores[i].y][jugadores[i].x+1] == 1 && i != 0) {return 0;} else return 1; break;
+		case 4: if (col_maze[jugadores[i].y][jugadores[i].x-1] == 0) {return 0;} else if (col_maze[jugadores[i].y][jugadores[i].x-1] == 1 && i != 0) {return 0;} else return 1; break;
 		default: return 1;
 	}
 }
 
-void control (player ix[5],char i){
+void control (char i){
 
     static int dir;
 
-	switch (ix[i].keyst){
-      case('A'): if (!collition(ix,i,dir = 2)) {ix[i].ax = 0; ix[i].ay = -1;} break;
-      case('B'): if (!collition(ix,i,dir = 1)) {ix[i].ax = 0; ix[i].ay = 1;  dir = 1;} break;
-      case('C'): if (!collition(ix,i,dir = 3)) {ix[i].ax = 1; ix[i].ay = 0;  dir = 2;} break;
-      case('D'): if (!collition(ix,i,dir = 4)) {ix[i].ax = -1; ix[i].ay = 0; dir = 3;} break;
-      //default: ix[i].ax = 0; ix[i].ay = 0;
+	switch (jugadores[i].keyst){
+      case('A'): if (!collition(i,dir = 2)) {jugadores[i].ax = 0; jugadores[i].ay = -1;} break;
+      case('B'): if (!collition(i,dir = 1)) {jugadores[i].ax = 0; jugadores[i].ay = 1;  dir = 1;} break;
+      case('C'): if (!collition(i,dir = 3)) {jugadores[i].ax = 1; jugadores[i].ay = 0;  dir = 2;} break;
+      case('D'): if (!collition(i,dir = 4)) {jugadores[i].ax = -1; jugadores[i].ay = 0; dir = 3;} break;
+      //default: jugadores[i].ax = 0; jugadores[i].ay = 0;
     }
 }
 
-void movement (player ix[5], char i) {
-	
-		ix[i].x = ix[i].x + ix[i].ax;
-        ix[i].y = ix[i].y + ix[i].ay;
+void movement (char i) {
+		jugadores[i].x = jugadores[i].x + jugadores[i].ax;
+        jugadores[i].y = jugadores[i].y + jugadores[i].ay;
         
-        if (ix[i].x == xo && ix[i].y == yo) {ix[i].x = xi-1 ;ix[i].y = yi;}
-        if (ix[i].x == xi && ix[i].y == yi) {ix[i].x = xo+1 ;ix[i].y = yo;}
-    
-        //ix[i].ax = 0; ix[i].ay = 0;
+        if (jugadores[i].x == xo && jugadores[i].y == yo) {jugadores[i].x = xi-1 ;jugadores[i].y = yi;}
+        if (jugadores[i].x == xi && jugadores[i].y == yi) {jugadores[i].x = xo+1 ;jugadores[i].y = yo;}
 }
 
-void print_pac(player ix[5], WINDOW *screen, int status) {
+
+
+void *movimiento(void *y){
+    
+    int i = (int)y;
+    int delay;
+    
+    switch (i) {
+        case 0: delay = PAC_LAG  ; break;
+        case 1: delay = GHO_LAG_1; break;
+        case 2: delay = GHO_LAG_2; break;
+        case 3: delay = GHO_LAG_3; break;
+        case 4: delay = GHO_LAG_4; break;
+        default: delay = 0; 
+    }
+    
+    while (game_st == 1) {
+        
+        if (!collition(i,0)) {
+        
+        usleep(delay);
+        
+        jugadores[i].x = jugadores[i].x + jugadores[i].ax;
+        jugadores[i].y = jugadores[i].y + jugadores[i].ay;
+        
+        if (jugadores[i].x == xo && jugadores[i].y == yo) {jugadores[i].x = xi-1 ;jugadores[i].y = yi;}
+        if (jugadores[i].x == xi && jugadores[i].y == yi) {jugadores[i].x = xo+1 ;jugadores[i].y = yo;}
+    
+        }
+    }
+pthread_exit(NULL);
+}
+
+void print_pac(WINDOW *screen, int status) {
 	
 	wattron(screen, COLOR_PAIR(2));
-	int set = pla_dir(ix,0);
+	int set = pla_dir(0);
     
-    if (ix[0].death || pu == 2) {mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), " " );}
+    if (jugadores[0].death || pu == 2) {mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), " " );}
     else {
     
         switch (set){
-            case 1: mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), "ᗣ" ); break;
-            case 2: mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), "ᗢ" ); break;
-            case 3: mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), "ᗧ" ); break;
-            case 4: mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), "ᗤ" ); break;
+            case 1: mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), "ᗣ" ); break;
+            case 2: mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), "ᗢ" ); break;
+            case 3: mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), "ᗧ" ); break;
+            case 4: mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), "ᗤ" ); break;
         
-            default: mvwprintw(screen, y_in_laby(ix[0].y), x_in_laby(screen, ix[0].x), "ᗧ" ); break;
+            default: mvwprintw(screen, y_in_laby(jugadores[0].y), x_in_laby(screen, jugadores[0].x), "ᗧ" ); break;
         }
     }
 	wattron(screen, COLOR_PAIR(1));
 }
 
-void print_ghost(player ix[5],int i, WINDOW *screen){
+void print_ghost(int i, WINDOW *screen){
 	
 	for (int y = i;y>0;y--){
-		if (!pp) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(ix[y].y), x_in_laby(screen, ix[y].x), "ᗝ" ); wattron(screen, COLOR_PAIR(1));}
+		if (!pp) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(jugadores[y].y), x_in_laby(screen, jugadores[y].x), "ᗝ" ); wattron(screen, COLOR_PAIR(1));}
 		
-		else if (!ix[i].death) {mvwprintw(screen, y_in_laby(ix[y].y), x_in_laby(screen, ix[y].x), " " );}
-        else { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(ix[y].y), x_in_laby(screen, ix[y].x), "ᗝ" );}    
+		else if (!jugadores[i].death) {mvwprintw(screen, y_in_laby(jugadores[y].y), x_in_laby(screen, jugadores[y].x), " " );}
+        else { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(jugadores[y].y), x_in_laby(screen, jugadores[y].x), "ᗝ" );}    
 	}
 }
 
-void collition_pac (player ix[5], int i, WINDOW *screen) {
+void collition_pac (int i, WINDOW *screen) {
     static int pp_start;
+    int y;
     
-    if (cur_maze[ix[0].y][ix[0].x] == 0) {cur_maze[ix[0].y][ix[0].x] = -2; pills--;};
+    if (cur_maze[jugadores[0].y][jugadores[0].x] == 0) {cur_maze[jugadores[0].y][jugadores[0].x] = -2; pills--;};
     
-    for (int y = 1; y < i + 1; y++){
-        if (ix[0].x == ix[y].x && ix[0].y == ix[y].y) {mvwprintw(screen, 15, 2, "tocado");}
+    for (y = 1; y < i + 1; y++){
+        if (jugadores[0].x == jugadores[y].x && jugadores[0].y == jugadores[y].y) {mvwprintw(screen, 15, 2, "tocado");}
     }
     
     if (pp) {
@@ -348,7 +388,7 @@ void resize (int parent_y, int parent_x, WINDOW *field, WINDOW *score) {
 	}
 }
 
-void init_players (player jugadores[5]) {
+void init_players (void) {
   jugadores[0].name = 'pacman';
   jugadores[0].keyst = ' ';
   jugadores[0].x = 1;
@@ -530,7 +570,7 @@ signed char menu (WINDOW *screen, char jugador) {
 return cursor;
 }
 
-void game_loop (player jugadores[5], int jugador, clock_t start, WINDOW *field, WINDOW *score) {
+void game_loop (int jugador, clock_t start, WINDOW *field, WINDOW *score) {
     
         
 	resize(parent_y, parent_x, field, score);
@@ -559,7 +599,7 @@ void game_loop (player jugadores[5], int jugador, clock_t start, WINDOW *field, 
 	draw_borders(score);
 	mvwprintw (score, 1, 2, "%d", msec);
 	
-	mvwprintw (field, 3, 2, "%d", pla_dir(jugadores,jugador));
+	mvwprintw (field, 3, 2, "%d", pla_dir(jugador));
 	mvwprintw (field, 5, 2, "%d", pills);
 	
 	mvwprintw (field, 7, 2, "%d", jugadores[jugador].x);
@@ -567,11 +607,11 @@ void game_loop (player jugadores[5], int jugador, clock_t start, WINDOW *field, 
 	
 	//mvwprintw(field, jugadores[0].y, jugadores[0].x, "M" );
 	
-	control(jugadores,jugador);
-	if (!collition(jugadores,jugador,0)) {movement(jugadores,jugador);};
-    collition_pac (jugadores, 4, field);
-	print_pac(jugadores,field,0);
-	print_ghost(jugadores,4,field);
+	control(jugador);
+	//if (!collition(jugador,0)) {movement(jugador);};
+    collition_pac (4, field);
+	print_pac(field,0);
+	print_ghost(4,field);
 	
 
     
@@ -615,18 +655,22 @@ void init_ncurses () {
 
 int main(int argc, char *argv[]) {
   char jugador = 2;
+  
+  int i = 0;
   clock_t start = clock();
   
 
 
-  player jugadores[5];
-  
-  pthread_create( &thread, NULL, myTime, NULL);
+      pthread_create(&mov0, NULL, movimiento, (void*)0); i = 1;
+      pthread_create(&mov1, NULL, movimiento, (void*)1); i = 2;
+      pthread_create(&mov2, NULL, movimiento, (void*)2); i = 3;
+      pthread_create(&mov3, NULL, movimiento, (void*)3); i = 4;
+      pthread_create(&mov4, NULL, movimiento, (void*)4);
   
   init_ncurses();
 
 
-  init_players(jugadores);
+  init_players();
   
   
   getmaxyx(stdscr, parent_y, parent_x);
@@ -659,7 +703,7 @@ int main(int argc, char *argv[]) {
     mvwprintw(score, 1, 1, "Puntuacion");
 
 	
- while(jugadores[jugador].keyst != 'q') {game_loop(jugadores, jugador, start, field, score);}
+ while(jugadores[jugador].keyst != 'q') {game_loop(jugador, start, field, score);}
 	 
   game_st = 0;
   
