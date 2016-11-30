@@ -9,6 +9,7 @@
 #include <signal.h>     // Control de signals
 #include <string.h>     // Metodos de Strings
 #include <pthread.h>    // Medodos de Hilos
+#include <netdb.h>      // Medodos de Hilos
 
 #include <sys/types.h>  // Tipos de variables adicionales 
 #include<sys/socket.h>  // Metodos para Sockets
@@ -22,6 +23,7 @@
 
 
 #define DELAY 50000
+#define MAX 15
 #define LABY_WIDTH 29 // Columnas
 #define LABY_HEIGHT 31 // Filas
 #define LABY_OFFSET 4
@@ -41,6 +43,7 @@
 #define PORT_SERVER_4 5004
 #define PORT_SERVER_5 5005
 
+
 typedef struct{
    signed char name;
    signed char keyst;
@@ -54,6 +57,7 @@ struct __attribute__((packed, aligned(2))) package{
    unsigned char col_maze[LABY_HEIGHT][LABY_WIDTH];
    signed char cur_maze[LABY_HEIGHT][LABY_WIDTH];
    unsigned char game_st, pp, pu;
+   unsigned short pills;
 };
 
 sem_t tablero;
@@ -63,13 +67,15 @@ struct package paquete;
 
 unsigned char col_maze[LABY_HEIGHT][LABY_WIDTH];
 signed char cur_maze[LABY_HEIGHT][LABY_WIDTH];
-unsigned char game_st = 0, pp = 0, pu = 0, server = 1;
-unsigned short pills = 0;
+signed char errco = 0; jugador = -1;
+unsigned char server = 1;
+char ip;
+
 unsigned long uno, msec;
-signed int xo,xi,yo,yi;
+signed int xo,xi,yo,yi, port;
 clock_t start, diff;
 const signed char maze[LABY_HEIGHT][LABY_WIDTH];
-pthread_t serv1, serv2, serv3, serv4, serv5, mov0, mov1, mov2, mov3, mov4, movid0, movid1, movid2, movid3, movid4;
+pthread_t serv1, serv2, serv3, serv4, serv5, cli, mov0, mov1, mov2, mov3, mov4, movid0, movid1, movid2, movid3, movid4;
 pthread_mutex_t mx = PTHREAD_MUTEX_INITIALIZER;
 signed short parent_x, parent_y;
 signed char key;
@@ -112,9 +118,105 @@ char maze[LABY_HEIGHT][LABY_WIDTH] = {                                          
 };
 
 
+char get_ip(void){//genera el ip de la maquina 
+	int fd;
+ 	struct ifreq ifr;
+
+ 	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+ 	/* I want to get an IPv4 IP address */
+ 	ifr.ifr_addr.sa_family = AF_INET;
+
+ 	/* I want IP address attached to "eth0" */
+ 	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);
+
+ 	ioctl(fd, SIOCGIFADDR, &ifr);
+
+ 	close(fd);
+    
+    fd = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+
+ 	/* display result */
+ 	return fd;
+
+}
+
+int client () {
+    int sockfd,portno,n;
+	char move; 
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+
+	while(paquete.game_st == 0){
+	//usleep (1000000) ;
+    
+    switch(jugador)//se asigna un puerto
+	{
+    case 0:
+		portno=PORT_SERVER_5;
+    	break;
+	case 1:
+		portno=PORT_SERVER_1;
+    	break;
+	case 2:
+    	portno=PORT_SERVER_2;
+    	break;
+	case 3:
+    	portno=PORT_SERVER_3;
+    	break;
+	case 4:
+    	portno=PORT_SERVER_4;
+    	break;
+	}
+    
+	sockfd = socket(AF_INET,SOCK_STREAM,0);
+
+	if(sockfd < 0){
+		errco = 1;
+		return 1;
+	}
+	server = gethostbyname("127.0.0.1");
+
+	if(server == NULL){
+		errco = 1;
+		return 1;		
+	}
+
+	bzero((char*)&serv_addr,sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+
+	bcopy((char*)server->h_addr,(char*)&serv_addr.sin_addr.s_addr,server->h_length);
+
+	serv_addr.sin_port = htons(portno);
+    
+	if(connect(sockfd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))<0){
+		errco = 1;
+		return 2;
+	}
+
+    	read(sockfd,&paquete,sizeof(struct package));
+        errco = 0;
+
+/**
+    	int i,j;
+	
+	//imprimir
+	printf("Nombre %c \n",paquete1.jugadores[1].name);
+	//modificar
+	move='b';
+   	
+	write(sockfd,&move,sizeof(char));
+	printf("mensaje enviado \n");	
+        
+**/
+	
+    	}
+close(sockfd);
+	return 0;
+}
+
 //@sn numero de servidor
 void *server_fantasma(void *sn){
-	
 	int a = (int)sn;
 	int port;
 	switch(a)//se asigna un puerto
@@ -143,7 +245,7 @@ void *server_fantasma(void *sn){
 	sockfd = socket(AF_INET,SOCK_STREAM,0); //declaracion de estructura 
 	//parametros (familia,puerto de asignacion,parametro de configuracion)
 	if(sockfd < 0){
-		fprintf(stderr,"error abriendo socket server %d \n",a);
+		errco = 1;
 		return NULL;	
 	}
 
@@ -154,44 +256,39 @@ void *server_fantasma(void *sn){
 	serv_addr.sin_port = htons(portno); 
 
 	if(bind(sockfd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))<0){
-		fprintf(stderr,"error de conexion al socket server %d \n",a);
+		errco = 1;
 		return NULL;	
 	}
 	//segundo parametro, la cantidad de procesos concurrentes permitidos
-	while(game_st == 0){
+	while(paquete.game_st == 0){
 		listen(sockfd,5); // espera bloqueado por una respuesta 
 	
 		clilen = sizeof(cli_addr);
 
 		newsockfd = accept(sockfd,(struct sockaddr*)&cli_addr,&clilen);
 		if(newsockfd < 0){
-			fprintf(stderr,"error en conexion entrante server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
+		errco = 0;
 	
 		sem_wait(&tablero);//blokea semaforo
-		//escribir algo
-
-		paquete.jugadores[1].name='a';
-
     	sem_post(&tablero);
 
 
 		n = write(newsockfd,&paquete,sizeof( struct package));
 		if(n < 0){
-			fprintf(stderr,"error escribiendo el mensaje 1 server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
 
 		n = read(newsockfd,&move,sizeof(char));
 		if(n < 0){
-			fprintf(stderr,"error leyendo el mensaje 2 server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
 		printf("char: %c \n",move);
-	
-
-   		printf("Peticion Realizada server 1 server %d \n",a);
+        errco = 0;
 	
 	} //fin del while
 	close(newsockfd);
@@ -204,18 +301,18 @@ void *server_fantasma(void *sn){
 
 
 void *server_pacman(void *arg){
-	
+    
 	int sockfd,newsockfd,portno;
 	socklen_t clilen;
 	struct sockaddr_in serv_addr,cli_addr;
 	int n;// cantidad de caracteres leidos
-	int a = 5; 
+	char move;
 
 
 	sockfd = socket(AF_INET,SOCK_STREAM,0); //declaracion de estructura 
 	//parametros (familia,puerto de asignacion,parametro de configuracion)
 	if(sockfd < 0){
-		fprintf(stderr,"error abriendo socket server %d \n",a);
+		errco = 1;
 		return NULL;	
 	}
 
@@ -226,62 +323,48 @@ void *server_pacman(void *arg){
 	serv_addr.sin_port = htons(portno); 
 
 	if(bind(sockfd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))<0){
-		fprintf(stderr,"error de conexion al socket server %d \n",a);
+		errco = 1;
 		return NULL;	
 	}
 	//segundo parametro, la cantidad de procesos concurrentes permitidos
-	while(game_st == 0){
+	while(paquete.game_st == 0){
 		listen(sockfd,5); // espera bloqueado por una respuesta 
 	
 		clilen = sizeof(cli_addr);
 
 		newsockfd = accept(sockfd,(struct sockaddr*)&cli_addr,&clilen);
 		if(newsockfd < 0){
-			fprintf(stderr,"error en conexion entrante server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
+		errco = 0;
 	
 		sem_wait(&tablero);//blokea semaforo
-		//escribir algo
-
-		paquete.jugadores[1].name='a';
-
     	sem_post(&tablero);
 
-		//envia el estado del juego
+
 		n = write(newsockfd,&paquete,sizeof( struct package));
 		if(n < 0){
-			fprintf(stderr,"error escribiendo el mensaje 1 server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
-		//leer movimiento
+
 		n = read(newsockfd,&move,sizeof(char));
 		if(n < 0){
-			fprintf(stderr,"error leyendo el mensaje 2 server %d \n",a);
+			errco = 1;
 			return NULL;
 		}
-	
 		printf("char: %c \n",move);
-		
-
-   		printf("Peticion Realizada server 1 server %d \n",a);
+        errco = 0;
 	
-	}
+	} //fin del while
 	close(newsockfd);
 	close(sockfd);
 	
 	return NULL;
 
-
 }
 
-
-void spawn_fruit () {
-	srand(time(NULL));
-	int r = rand();    //returns a pseudo-random integer between 0 and RAND_MAX
-	
-	//if (r = 0) 
-}
 
 
 signed short y_in_laby (signed short y) {
@@ -313,10 +396,10 @@ int dir;
 if (f>0) {dir = f;} else {dir = pla_dir(i);}; 
 
 switch (dir){
-		case 1: if (col_maze[paquete.jugadores[i].y+1][paquete.jugadores[i].x] == 0) {return 0;} else if (col_maze[paquete.jugadores[i].y+1][paquete.jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
-		case 2: if (col_maze[paquete.jugadores[i].y-1][paquete.jugadores[i].x] == 0) {return 0;} else if (col_maze[paquete.jugadores[i].y-1][paquete.jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
-		case 3: if (col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x+1] == 0) {return 0;} else if (col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x+1] == 1 && i != 0) {return 0;} else return 1; break;
-		case 4: if (col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x-1] == 0) {return 0;} else if (col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x-1] == 1 && i != 0) {return 0;} else return 1; break;
+		case 1: if (paquete.col_maze[paquete.jugadores[i].y+1][paquete.jugadores[i].x] == 0) {return 0;} else if (paquete.col_maze[paquete.jugadores[i].y+1][paquete.jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
+		case 2: if (paquete.col_maze[paquete.jugadores[i].y-1][paquete.jugadores[i].x] == 0) {return 0;} else if (paquete.col_maze[paquete.jugadores[i].y-1][paquete.jugadores[i].x] == 1 && i != 0) {return 0;} else return 1; break;
+		case 3: if (paquete.col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x+1] == 0) {return 0;} else if (paquete.col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x+1] == 1 && i != 0) {return 0;} else return 1; break;
+		case 4: if (paquete.col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x-1] == 0) {return 0;} else if (paquete.col_maze[paquete.jugadores[i].y][paquete.jugadores[i].x-1] == 1 && i != 0) {return 0;} else return 1; break;
 		default: return 1;
 	}
 }
@@ -328,14 +411,14 @@ void init_laby(){
 		for (x = 0; x <= LABY_WIDTH-2; x++){
 		
 			switch (maze[y][x]){
-				case ' ': col_maze[y][x] = 0; cur_maze[y][x] = 0; pills++; break;
-				case 'p': col_maze[y][x] = 0; cur_maze[y][x] = 1; break;
-                case 'o': col_maze[y][x] = 0; cur_maze[y][x] = -1; xo = x; yo = y; break;
-                case 'i': col_maze[y][x] = 0; cur_maze[y][x] = -1; xi = x; yi = y; break;
-                case 'y': col_maze[y][x] = 0; cur_maze[y][x] = -1; break;
-                case 'w': col_maze[y][x] = 0; cur_maze[y][x] = -1; break;
-                case 'f': col_maze[y][x] = 1; cur_maze[y][x] = -1; break;
-				default:  col_maze[y][x] = -1; cur_maze[y][x] = -1;
+				case ' ': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = 0; paquete.pills++; break;
+				case 'p': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = 1; break;
+                case 'o': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = -1; xo = x; yo = y; break;
+                case 'i': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = -1; xi = x; yi = y; break;
+                case 'y': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = -1; break;
+                case 'w': paquete.col_maze[y][x] = 0; paquete.cur_maze[y][x] = -1; break;
+                case 'f': paquete.col_maze[y][x] = 1; paquete.cur_maze[y][x] = -1; break;
+				default:  paquete.col_maze[y][x] = -1; paquete.cur_maze[y][x] = -1;
 			}
 		}
 	}
@@ -384,7 +467,7 @@ void *movimiento(void *y){
         default: delay = 0;
     }
     
-    while (game_st == 0) {
+    while (paquete.game_st == 0) {
         
         if (!collition(i,0)) {
         
@@ -406,13 +489,16 @@ void print_pac(WINDOW *screen, int status) {
 	wattron(screen, COLOR_PAIR(2));
 	int set = pla_dir(0);
     
-    if (paquete.jugadores[0].death || pu == 2) {mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), " " );}
+    if (paquete.jugadores[0].death || (paquete.pu == 2 && jugador != 0)) {mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), " " );}
     else {
     
         switch (set){
             case 1: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗣ" ); break;
+            
             case 2: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗢ" ); break;
+            
             case 3: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗧ" ); break;
+            
             case 4: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗤ" ); break;
         
             default: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗧ" ); break;
@@ -425,9 +511,11 @@ void print_ghost(int i, WINDOW *screen){
 	
     int y;
 	for (y = i;y>0;y--){
-		if (!pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" ); wattron(screen, COLOR_PAIR(1));}
+		if (!paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" ); 
+            
+            wattron(screen, COLOR_PAIR(1));}
 		
-		else if (pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" );}
+		else if (paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" );}
 		
         else if (paquete.jugadores[y].death == 1) {mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), " " );}    
 	}
@@ -438,14 +526,14 @@ void collition_pac (WINDOW *screen) {
     static unsigned long end;
     int y;
     
-    if (cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] == 0) {cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] = -2; pills--;};
-    if (cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] == 1) {cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] = -2; pp = 1; end = msec/1000 + 20;};
-    if (end == msec/1000) {pp = 0;};
+    if (paquete.cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] == 0) {paquete.cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] = -2; paquete.pills--;};
+    if (paquete.cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] == 1) {paquete.cur_maze[paquete.jugadores[0].y][paquete.jugadores[0].x] = -2; paquete.pp = 1; end = msec/1000 + 20;};
+    if (end == msec/1000) {paquete.pp = 0;};
     mvwprintw(screen, 16, 2, "%d", end);
     
     for (y = 1; y < 5; y++){
-        if ( (paquete.jugadores[0].x == paquete.jugadores[y].x && paquete.jugadores[0].y == paquete.jugadores[y].y) && pp == 0) {paquete.jugadores[0].death = 1; paquete.jugadores[0].lives--;}
-        if ( (paquete.jugadores[0].x == paquete.jugadores[y].x && paquete.jugadores[0].y == paquete.jugadores[y].y) && pp == 1) {paquete.jugadores[y].death = 1;}
+        if ( (paquete.jugadores[0].x == paquete.jugadores[y].x && paquete.jugadores[0].y == paquete.jugadores[y].y) && paquete.pp == 0) {paquete.jugadores[0].death = 1;}
+        if ( (paquete.jugadores[0].x == paquete.jugadores[y].x && paquete.jugadores[0].y == paquete.jugadores[y].y) && paquete.pp == 1) {paquete.jugadores[y].death = 1;}
     }
 }
 
@@ -595,8 +683,7 @@ void death_manager (WINDOW *screen) {
     unsigned int i;
     
   for (i = 0; i < 5; i++) {  
-  mvwprintw(screen, 17 + i, 2, "%d" ,paquete.jugadores[i].death);
-  if (paquete.jugadores[i].death == 1 && end[i] == 0) {end[i] = msec/1000 + 20; restore_player(i);}
+  if (paquete.jugadores[i].death == 1 && end[i] == 0) { paquete.jugadores[0].lives--; end[i] = msec/1000 + 20; restore_player(i);}
   if (paquete.jugadores[i].death == 1 && end[i] == msec/1000) {paquete.jugadores[i].death = 0; end[i] = 0;}
   }
 }
@@ -639,7 +726,7 @@ void draw_laby(WINDOW *screen, WINDOW *score){
 				default:  mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "E");
 			}
 			
-			switch (cur_maze[y][x]) {
+			switch (paquete.cur_maze[y][x]) {
                 case 0:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "▪"); wattron(screen, COLOR_PAIR(3)); break;
 				case 1:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "⦿"); wattron(screen, COLOR_PAIR(3)); break;
                 case -1: break;
@@ -651,20 +738,22 @@ void draw_laby(WINDOW *screen, WINDOW *score){
 	wattron(screen, COLOR_PAIR(1));
 }
 
-signed char menu_cursor (char i, char y) {
+signed char menu_cursor (char i, char y, char z) {
     switch (y) {
-      case('A'): if (i == 0) {return 3;} else {return i-1;};
-      case('B'): if (i == 3) {return 0;} else {return i+1;};
+      case('A'): if (i == 0) {return z;} else {return i-1;};
+      case('B'): if (i == z) {return 0;} else {return i+1;};
       default: return i;
     }
 }
 
-signed char menu (WINDOW *screen, char jugador) {
+signed char menu (WINDOW *screen) {
     
     signed char cursor = 0;
     char w_cursor = ' ';
     
     do {
+        
+        w_cursor = ' ';
         
         wclear(screen);
     mvwprintw (screen, y_in_laby(0), x_in_laby(screen, 5), "Pᗧc Mᗣn");
@@ -674,8 +763,6 @@ signed char menu (WINDOW *screen, char jugador) {
      mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 3), "Unirse a Partida");
      mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 3), "Instrucciones");
      mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 3), "Salir");
-     
-     mvwprintw (screen, y_in_laby(3), x_in_laby(screen, 3), "M");
      
      switch (cursor){
          case 0:
@@ -694,8 +781,12 @@ signed char menu (WINDOW *screen, char jugador) {
     
      w_cursor = wgetch(screen);
      if (w_cursor == '\r') {break;}
-     cursor = menu_cursor(cursor, w_cursor);
-     w_cursor = ' ';
+     cursor = menu_cursor(cursor, w_cursor, 3);
+     if (w_cursor == 'q') {
+         exit(0);
+    }
+     
+     
      
     wrefresh(screen);
     
@@ -703,21 +794,131 @@ signed char menu (WINDOW *screen, char jugador) {
 return cursor;
 }
 
-int game_loop (int jugador, WINDOW *field, WINDOW *score) {
+int sel_menu (WINDOW *screen) {
     
-while (game_st == 0) {
+    signed char cursor = 0;
+    char w_cursor = ' ';
+    
+    do {
+        
+        w_cursor = ' ';
+        
+        wclear(screen);
+    mvwprintw (screen, y_in_laby(0), x_in_laby(screen, 5), "Seleccione un personaje");
+    
+    wattron(screen, COLOR_PAIR(2));
+    mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 3), "ᗧ");
+    
+    wattron(screen, COLOR_PAIR(4));
+     
+    mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 3), "ᗝ");
+    
+    wattron(screen, COLOR_PAIR(5));
+     
+    mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 3), "ᗝ");
+    
+    wattron(screen, COLOR_PAIR(6));
+     
+    mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 3), "ᗝ");
+    
+    wattron(screen, COLOR_PAIR(1));
+    
+    mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 3), "Volver");
+     
+     switch (cursor){
+         case 0:
+             mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 0), "➤");
+             break;
+         case 1:
+             mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 0), "➤");
+             break;
+         case 2:
+             mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), "➤");
+             break;
+         case 3:
+             mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), "➤");
+             break;
+         case 4:
+             mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "➤");
+             break;
+    }
+    
+    if (cursor != 4) {jugador = cursor;}
+     w_cursor = wgetch(screen);
+     
+     if (w_cursor == 'q') {
+         exit(0);
+    }
+    
+     if (w_cursor == '\r') {
+        if (cursor == 4) {jugador = -1; break;}
+        else {
+            if (server == 1) {break;}
+            else if (server == 0) { 
+                    if (client() == 2) {mvwprintw (screen, y_in_laby(12), x_in_laby(screen, 0), "Personaje ya seleccionado o error de conexion");}
+                    else {break;}
+            }
+        }
+    }
+     cursor = menu_cursor(cursor, w_cursor, 4);
+     
+     
+    wrefresh(screen);
+    
+    } while (w_cursor != '\r');
+}
+
+int game_loop (WINDOW *w, WINDOW *field, WINDOW *score) {
+    
+    
+  noraw();
+  cbreak();
+  nodelay(stdscr,TRUE);
+  nodelay(w, TRUE);
+  nodelay(field, TRUE);
+  nodelay(score, TRUE);
+  timeout(0);
+  wtimeout(field, 0);
+  
+      pthread_create(&mov0, NULL, movimiento, (void*)0);
+      pthread_create(&mov1, NULL, movimiento, (void*)1);
+      pthread_create(&mov2, NULL, movimiento, (void*)2);
+      pthread_create(&mov3, NULL, movimiento, (void*)3);
+      pthread_create(&mov4, NULL, movimiento, (void*)4);
+  
+  
+  init_laby();
+  
+  
+  draw_borders(score);
+  
+    wrefresh(score);
+    mvwprintw(score, 1, 1, "Puntuacion");
+    
+while (paquete.game_st == 0) {
 
     death_manager(field);
 	resize(parent_y, parent_x, field, score);
+    
+    if (errco != 0) {mvwprintw(field, 3, 4, "Error de Conexion");};
 
     key = wgetch(field);
     if (key != ERR) paquete.jugadores[jugador].keyst = key;
     
-    if (game_st == 1) return -1;
-    if (pills == 0) return 0;
+    if (paquete.game_st == 1) return -1;
+    if (paquete.pills == 0) return 0;
     if (paquete.jugadores[0].lives == 0) return 1;
-	if (paquete.jugadores[jugador].keyst == 'q') return 2;
+    if (paquete.jugadores[jugador].keyst == 'q') return 2;
 	
+    
+	 if (server == 1) {
+        control(jugador);
+        collition_pac (field);
+    } else {
+        client();
+        control_cli(1);
+    }
+    
 	usleep(DELAY);
 	
 	diff = clock() - start;
@@ -739,13 +940,7 @@ while (game_st == 0) {
 	
 	//mvwprintw(field, jugadores[0].y, jugadores[0].x, "M" );
 	
-    if (server = 1) {
-        control(jugador);
-        control(2);
-        collition_pac (field);
-    } else {
-        control_cli(1);
-    }
+   
     
 	print_pac(field,0);
 	print_ghost(4,field);
@@ -774,71 +969,47 @@ void init_ncurses () {
   init_pair(7, COLOR_CYAN,  COLOR_BLACK); // Clide 
 }
 
+void init_server () {
+    sem_init(&tablero, 0, 1);
 
-
-
-
-
-
+   pthread_create(&serv1, NULL , server_fantasma , (void*)1);//llamada a la funcion que ejecuta el hilo
+   pthread_create(&serv2, NULL , server_fantasma , (void*)2);//llamada a la funcion que ejecuta el hilo
+   pthread_create(&serv3, NULL , server_fantasma , (void*)3);//llamada a la funcion que ejecuta el hilo
+   pthread_create(&serv4, NULL , server_fantasma , (void*)4);//llamada a la funcion que ejecuta el hilo
+   pthread_create(&serv5, NULL , server_pacman , NULL);
+}
 
 
 
 
 int main(int argc, char *argv[]) {
-  char jugador = 0;
-  
-  int i = 0;
-  
  start = clock();
-  
-  
-  init_ncurses();
+ ip = "192.168.110.120";
+
+setlocale(LC_ALL, "");
   init_players();
+    
+  init_ncurses();
+
   getmaxyx(stdscr, parent_y, parent_x);
   
   WINDOW *w = initscr();;
   WINDOW *field = newwin(parent_y - SCORE_SIZE, parent_x, 0, 0);
   WINDOW *score = newwin(SCORE_SIZE, parent_x, parent_y - SCORE_SIZE, 0);
   
-  menu(field, jugador);
-  //getch();
-  //sleep(1);
+  
+while (jugador == -1){
+  switch (menu(field)) {
+      case 0: server = 1; init_server(); sel_menu(field); break;
+      case 1: server = 0; sel_menu(field); mvwprintw(field, y_in_laby(12), x_in_laby(field, 3), "Esperando Conexion"); break;
+      case 2: break;
+      case 3: endwin(); exit(0); return 0; break;
+}
+}
 
 
-  noraw();
-  cbreak();
-  nodelay(stdscr,TRUE);
-  nodelay(w, TRUE);
-  nodelay(field, TRUE);
-  nodelay(score, TRUE);
-  timeout(0);
-  wtimeout(field, 0);
-  
-  if (server == 1) {
-   pthread_create(&serv1, NULL , server_fantasma , (void*)1);//llamada a la funcion que ejecuta el hilo
-   pthread_create(&serv2, NULL , server_fantasma , (void*)2);//llamada a la funcion que ejecuta el hilo
-   pthread_create(&serv3, NULL , server_fantasma , (void*)3);//llamada a la funcion que ejecuta el hilo
-   pthread_create(&serv4, NULL , server_fantasma , (void*)4);//llamada a la funcion que ejecuta el hilo
-   pthread_create(&serv5, NULL , server_pacman , NULL);
-    }
-  
-  
-  
-  init_laby();
-  
-  
-  draw_borders(score);
-  
-    wrefresh(score);
-    mvwprintw(score, 1, 1, "Puntuacion");
-    
-      pthread_create(&mov0, NULL, movimiento, (void*)0);
-      pthread_create(&mov1, NULL, movimiento, (void*)1);
-      pthread_create(&mov2, NULL, movimiento, (void*)2);
-      pthread_create(&mov3, NULL, movimiento, (void*)3);
-      pthread_create(&mov4, NULL, movimiento, (void*)4);
 
-  switch (game_loop(jugador, field, score)) {
+switch (game_loop(w, field, score)) {
       case 0:
           mvwprintw(field, 4, 4, "Pacman a Ganado");
           mvwprintw(field, 5, 4, "Gracias por jugar");
@@ -854,18 +1025,17 @@ int main(int argc, char *argv[]) {
           mvwprintw(field, 5, 4, "La partida a sido cerrada");
           break;
 }
-  wrefresh(field);
 
-  game_st = 0;
-  sleep(2);
+  wrefresh(field);
+  paquete.game_st = 1;
+  sleep(1);
   endwin();
   
-  
-   pthread_join(&serv1, NULL);//espera el fianl de hilos
-   pthread_join(&serv2, NULL);
-   pthread_join(&serv3, NULL);
-   pthread_join(&serv4, NULL);
-   pthread_join(&serv5, NULL);	
+   //pthread_join(&serv1, NULL);//espera el fianl de hilos
+   //pthread_join(&serv2, NULL);
+   //pthread_join(&serv3, NULL);
+   //pthread_join(&serv4, NULL);
+   //pthread_join(&serv5, NULL);	
   
   exit(0);
 
