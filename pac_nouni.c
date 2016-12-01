@@ -501,15 +501,15 @@ void print_pac(WINDOW *screen, int status) {
     else {
     
         switch (set){
-            case 1: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗣ" ); break;
+            case 1: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "P" ); break;
             
-            case 2: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗢ" ); break;
+            case 2: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "P" ); break;
             
-            case 3: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗧ" ); break;
+            case 3: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "P" ); break;
             
-            case 4: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗤ" ); break;
+            case 4: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "P" ); break;
         
-            default: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "ᗧ" ); break;
+            default: mvwprintw(screen, y_in_laby(paquete.jugadores[0].y), x_in_laby(screen, paquete.jugadores[0].x), "P" ); break;
         }
     }
 	wattron(screen, COLOR_PAIR(1));
@@ -519,11 +519,11 @@ void print_ghost(int i, WINDOW *screen){
 	
     int y;
 	for (y = i;y>0;y--){
-		if (!paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" ); 
+		if (!paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(y+3)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "G" ); 
             
             wattron(screen, COLOR_PAIR(1));}
 		
-		else if (paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "ᗝ" );}
+		else if (paquete.pp && paquete.jugadores[y].death == 0) { wattron(screen, COLOR_PAIR(1)); mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), "G" );}
 		
         else if (paquete.jugadores[y].death == 1) {mvwprintw(screen, y_in_laby(paquete.jugadores[y].y), x_in_laby(screen, paquete.jugadores[y].x), " " );}    
 	}
@@ -720,16 +720,16 @@ void draw_laby(WINDOW *screen, WINDOW *score){
 		
 			switch (maze[y][x]){
 				
-				case '-': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "═"); break;
-				case '|': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "║"); break;
-				case '.': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╔"); break;
-				case ']': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╝"); break;
-				case '`': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╗"); break;
-				case '[': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╚"); break;
-				case 't': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╕"); break;
-				case 'q': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╘"); break;
-				case 'r': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╒"); break;
-				case 'y': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "╛"); break;
+				case '-': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "-"); break;
+				case '|': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "|"); break;
+				case '.': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case ']': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case '`': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case '[': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case 't': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case 'q': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case 'r': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
+				case 'y': mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "+"); break;
                 case ' ': break;
 				case 'p': break;
 				case 'w': // Camino sin pildoras
@@ -741,8 +741,8 @@ void draw_laby(WINDOW *screen, WINDOW *score){
 			}
 			
 			switch (paquete.cur_maze[y][x]) {
-                case 0:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "▪"); wattron(screen, COLOR_PAIR(3)); break;
-				case 1:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "⦿"); wattron(screen, COLOR_PAIR(3)); break;
+                case 0:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "*"); wattron(screen, COLOR_PAIR(3)); break;
+				case 1:  wattron(screen, COLOR_PAIR(2)); mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , "@"); wattron(screen, COLOR_PAIR(3)); break;
                 case -1: break;
                 case -2: mvwprintw(screen, y_in_laby(y),x_in_laby(screen, x) , " "); break;
                 default: break;
@@ -770,7 +770,7 @@ signed char menu (WINDOW *screen, int argc) {
         w_cursor = ' ';
         
         wclear(screen);
-    mvwprintw (screen, y_in_laby(0), x_in_laby(screen, 5), "Pᗧc Mᗣn");
+    mvwprintw (screen, y_in_laby(0), x_in_laby(screen, 5), "Pac Man (Sin Unicode)");
     
     
      mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 3), "Iniciar Partida");
@@ -785,16 +785,16 @@ signed char menu (WINDOW *screen, int argc) {
      
      switch (cursor){
          case 0:
-             mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 0), ">");
              break;
          case 1:
-             mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 0), ">");
              break;
          case 2:
-             mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), ">");
              break;
          case 3:
-             mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), ">");
              break;
     }
     
@@ -826,23 +826,23 @@ int sel_menu (WINDOW *screen) {
     mvwprintw (screen, y_in_laby(0), x_in_laby(screen, 5), "Seleccione un personaje");
     
     wattron(screen, COLOR_PAIR(2));
-    mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 3), "ᗧ");
+    mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 3), "Pacman");
     
     wattron(screen, COLOR_PAIR(4));
      
-    mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 3), "ᗝ");
+    mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 3), "Blinky");
     
     wattron(screen, COLOR_PAIR(5));
      
-    mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 3), "ᗝ");
+    mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 3), "Pinky");
     
     wattron(screen, COLOR_PAIR(6));
      
-    mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 3), "ᗝ");
+    mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 3), "Inky");
     
     wattron(screen, COLOR_PAIR(7));
     
-    mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 3), "ᗝ");
+    mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 3), "Clyde");
     
     
     wattron(screen, COLOR_PAIR(1));
@@ -851,22 +851,22 @@ int sel_menu (WINDOW *screen) {
      
      switch (cursor){
          case 0:
-             mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(2), x_in_laby(screen, 0), ">");
              break;
          case 1:
-             mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(4), x_in_laby(screen, 0), ">");
              break;
          case 2:
-             mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), ">");
              break;
          case 3:
-             mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), ">");
              break;
          case 4:
-             mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), ">");
              break;
          case 5:
-             mvwprintw (screen, y_in_laby(12), x_in_laby(screen, 0), "➤");
+             mvwprintw (screen, y_in_laby(12), x_in_laby(screen, 0), ">");
              break;
     }
     
@@ -907,7 +907,6 @@ void err_display (WINDOW *field) {
     }
 }
 
-
 void tutorial(WINDOW *screen){
     wclear(screen);
     wrefresh(screen);
@@ -920,13 +919,13 @@ void tutorial(WINDOW *screen){
      mvwprintw (screen, y_in_laby(6), x_in_laby(screen, 0), "(Requiere introducir una ip como parametro)");
      
       mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), "Juega con las flechas de direccion");
-      mvwprintw (screen, y_in_laby(9), x_in_laby(screen, 0), "como pacman (ᗧ), come todos los pills del mapa");
+      mvwprintw (screen, y_in_laby(9), x_in_laby(screen, 0), "como pacman (P), come todos los pills del mapa");
       
-      mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "sin ser atrapado por los fantasmas (ᗝ) para ganar");
+      mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "sin ser atrapado por los fantasmas (G) para ganar");
       
       mvwprintw (screen, y_in_laby(11), x_in_laby(screen, 0), "Al perder todas sus vidas, pacman pierde.");
       
-      mvwprintw (screen, y_in_laby(13), x_in_laby(screen, 0), "Usa las Power-pills (⦿) para deborar y frenar los fantasmas");
+      mvwprintw (screen, y_in_laby(13), x_in_laby(screen, 0), "Usa las Power-pills (*) para deborar y frenar los fantasmas");
       
        mvwprintw (screen, y_in_laby(14), x_in_laby(screen, 0), "Consume 30 pills y presiona la barra espaciadora para");
        mvwprintw (screen, y_in_laby(15), x_in_laby(screen, 0), "Usar un poder unico, entre ellos:");
@@ -1146,7 +1145,7 @@ while (jugador == -1 || jugador == -2){
           sel_menu(field); 
           break;
           }
-      case 2: tutorial(field); break;
+      case 2:  tutorial(field); break;
       case 3: paquete.game_st = 1; wclear(score); wclear(field); wclear(w); endwin(); exit(0); return 0; break;
 }
 }
