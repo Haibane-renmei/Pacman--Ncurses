@@ -922,14 +922,14 @@ void tutorial(WINDOW *screen){
       mvwprintw (screen, y_in_laby(8), x_in_laby(screen, 0), "Juega con las flechas de direccion");
       mvwprintw (screen, y_in_laby(9), x_in_laby(screen, 0), "como pacman (ᗧ), come todos los pills del mapa");
       
-      mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "sin ser atrapado por los fantasmas (ᗝ) para ganar");
+      mvwprintw (screen, y_in_laby(10), x_in_laby(screen, 0), "sin ser atrapado por los fantasmas (ᗝ) para ganar.");
       
-      mvwprintw (screen, y_in_laby(11), x_in_laby(screen, 0), "Al perder todas sus vidas, pacman pierde.");
+      mvwprintw (screen, y_in_laby(11), x_in_laby(screen, 0), "Al perder todas sus vidas, Pacman pierde.");
       
-      mvwprintw (screen, y_in_laby(13), x_in_laby(screen, 0), "Usa las Power-pills (⦿) para deborar y frenar los fantasmas");
+      mvwprintw (screen, y_in_laby(13), x_in_laby(screen, 0), "Usa las Power-pills (⦿) para devorar y frenar los fantasmas");
       
        mvwprintw (screen, y_in_laby(14), x_in_laby(screen, 0), "Consume 30 pills y presiona la barra espaciadora para");
-       mvwprintw (screen, y_in_laby(15), x_in_laby(screen, 0), "Usar un poder unico, entre ellos:");
+       mvwprintw (screen, y_in_laby(15), x_in_laby(screen, 0), "Usar un poder especial, estos son:");
        
        mvwprintw (screen, y_in_laby(17), x_in_laby(screen, 2), "Invis: vuelve a pacman invisible a los demas jugadores");
        mvwprintw (screen, y_in_laby(18), x_in_laby(screen, 2), "Mirr: Mueve a pacman al otro lado del mapa");
@@ -1144,8 +1144,8 @@ while (jugador == -1 || jugador == -2){
           paquete.game_st = 0;
           server = 0; 
           sel_menu(field); 
-          break;
           }
+          break;
       case 2: tutorial(field); break;
       case 3: paquete.game_st = 1; wclear(score); wclear(field); wclear(w); endwin(); exit(0); return 0; break;
 }
